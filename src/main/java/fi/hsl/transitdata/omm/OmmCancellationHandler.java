@@ -1,23 +1,19 @@
 package fi.hsl.transitdata.omm;
 
-import com.google.transit.realtime.GtfsRealtime;
-import com.typesafe.config.Config;
 import fi.hsl.common.pulsar.PulsarApplicationContext;
 import fi.hsl.common.transitdata.TransitdataProperties;
 import fi.hsl.common.transitdata.proto.InternalMessages;
 import org.apache.pulsar.client.api.Producer;
 import org.apache.pulsar.client.api.PulsarClientException;
-import org.apache.pulsar.client.api.TypedMessageBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.LinkedList;
 import java.util.Optional;
-import java.util.Queue;
 
 public class OmmCancellationHandler {
     static final Logger log = LoggerFactory.getLogger(OmmCancellationHandler.class);
@@ -57,25 +53,34 @@ public class OmmCancellationHandler {
 
             InternalMessages.TripCancellation.Builder builder = InternalMessages.TripCancellation.newBuilder();
 
-            String routeId = resultSet.getString(1);//TODO FIX INDEX AND DATA TYPE
+            String routeId = resultSet.getString("ROUTE_NAME");
             builder.setRouteId(routeId);
-            int direction = resultSet.getInt(2);//TODO FIX INDEX AND DATA TYPE
-            builder.setDirectionId(direction);
-            String startDate = resultSet.getString(3);//TODO FIX INDEX AND DATA TYPE
+            int joreDirection = resultSet.getInt("DIRECTION");
+            builder.setDirectionId(joreDirection);
+            String startDate = resultSet.getString("OPERATING_DAY"); // yyyyMMdd
             builder.setStartDate(startDate);
-            String starTime = resultSet.getString(4);//TODO FIX INDEX AND DATA TYPE
+            String starTime = resultSet.getString("START_TIME"); // HH:mm:ss in local time
             builder.setStartTime(starTime);
 
             //Version number is defined in the proto file as default value but we still need to set it since it's a required field
             builder.setSchemaVersion(builder.getSchemaVersion());
             builder.setStatus(InternalMessages.TripCancellation.Status.CANCELED);
 
-            InternalMessages.TripCancellation cancellation = builder.build();
+            final InternalMessages.TripCancellation cancellation = builder.build();
 
-            final long timestamp = resultSet.getLong(5); //TODO FIX INDEX AND DATA TYPE
-            String dvjId ="";//TODO get from somewhere
+            final String dvjId = Long.toString(resultSet.getLong("DVJ_ID"));
+            final String description = resultSet.getString("description");
+            log.debug("Read cancellation for route {} with  dvjId {} and description '{}'",
+                    routeId, dvjId, description);
 
-            sendPulsarMessage(cancellation, timestamp, dvjId);
+            Timestamp timestamp = resultSet.getTimestamp("affected_departure_last_modified"); //other option is to use dev_case_last_modified
+            Optional<Long> epochTimestamp = toUtcEpochMs(timestamp.toString(), timeZone);
+            if (!epochTimestamp.isPresent()) {
+                log.error("Failed to parse epoch timestamp from resultset: {}", timestamp.toString());
+            }
+            else {
+                sendPulsarMessage(cancellation, epochTimestamp.get(), dvjId);
+            }
         }
     }
 
