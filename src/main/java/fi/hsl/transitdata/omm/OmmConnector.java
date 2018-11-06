@@ -1,17 +1,14 @@
 package fi.hsl.transitdata.omm;
 
-import com.google.transit.realtime.GtfsRealtime;
 import fi.hsl.common.pulsar.PulsarApplicationContext;
-import fi.hsl.common.transitdata.TransitdataProperties;
-import fi.hsl.common.transitdata.proto.InternalMessages;
-import org.apache.pulsar.client.api.Producer;
 import org.apache.pulsar.client.api.PulsarClientException;
-import org.apache.pulsar.client.api.TypedMessageBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.*;
-import java.util.Queue;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 
 public class OmmConnector {
 
@@ -20,11 +17,14 @@ public class OmmConnector {
     private final Connection dbConnection;
     private OmmCancellationHandler handler;
     private final String queryString;
+    private final String timezone;
 
     private OmmConnector(PulsarApplicationContext context, Connection connection) {
         handler = new OmmCancellationHandler(context);
         dbConnection = connection;
         queryString = createQuery();
+        timezone = context.getConfig().getString("omm.timezone");
+        log.info("Using timezone " + timezone);
     }
 
     public static OmmConnector newInstance(PulsarApplicationContext context, String jdbcConnectionString) throws SQLException {
@@ -65,17 +65,26 @@ public class OmmConnector {
                 "  ORDER BY DC.last_modified;";
     }
 
+    private String localDatetimeAsString(String zoneId) {
+        return localDatetimeAsString(Instant.now(), zoneId);
+    }
+
+    static String localDatetimeAsString(Instant instant, String zoneId) {
+        return DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(instant.atZone(ZoneId.of(zoneId)));
+    }
+
     public void queryAndProcessResults() throws SQLException, PulsarClientException {
-        log.info("Querying results from database");
+        //Let's use Strings in the query since JDBC driver tends to convert timestamps automatically to local jvm time.
+        String now = localDatetimeAsString(timezone);
+
+        log.info("Querying results from database with timestamp {}", now);
         long queryStartTime = System.currentTimeMillis();
 
         log.trace("Running query " + queryString);
 
         try (PreparedStatement statement = dbConnection.prepareStatement(queryString)) {
-            long utcNow = System.currentTimeMillis();
+            statement.setString(1, now);
 
-            //statement.setString(1, "2018-11-01");
-            statement.setTimestamp(1, new Timestamp(utcNow));
             ResultSet resultSet = statement.executeQuery();
             handler.handleAndSend(resultSet);
 

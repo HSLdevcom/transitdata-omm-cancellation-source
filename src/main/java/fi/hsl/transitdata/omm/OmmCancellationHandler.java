@@ -26,7 +26,6 @@ public class OmmCancellationHandler {
         timeZone = context.getConfig().getString("omm.timezone");
     }
 
-    //TODO Move to commons
     public Optional<Long> toUtcEpochMs(String localTimestamp) {
         return toUtcEpochMs(localTimestamp, timeZone);
     }
@@ -46,7 +45,6 @@ public class OmmCancellationHandler {
             return Optional.empty();
         }
     }
-
 
     public void handleAndSend(ResultSet resultSet) throws SQLException, PulsarClientException {
         while (resultSet.next()) {
@@ -74,7 +72,7 @@ public class OmmCancellationHandler {
                     routeId, dvjId, description);
 
             Timestamp timestamp = resultSet.getTimestamp("affected_departure_last_modified"); //other option is to use dev_case_last_modified
-            Optional<Long> epochTimestamp = toUtcEpochMs(timestamp.toString(), timeZone);
+            Optional<Long> epochTimestamp = toUtcEpochMs(timestamp.toString());
             if (!epochTimestamp.isPresent()) {
                 log.error("Failed to parse epoch timestamp from resultset: {}", timestamp.toString());
             }
