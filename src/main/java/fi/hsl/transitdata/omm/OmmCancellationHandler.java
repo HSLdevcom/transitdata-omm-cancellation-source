@@ -63,10 +63,11 @@ public class OmmCancellationHandler {
             //Version number is defined in the proto file as default value but we still need to set it since it's a required field
             builder.setSchemaVersion(builder.getSchemaVersion());
             builder.setStatus(InternalMessages.TripCancellation.Status.CANCELED);
+            final String dvjId = Long.toString(resultSet.getLong("DVJ_ID"));
+            builder.setTripId(dvjId);
 
             final InternalMessages.TripCancellation cancellation = builder.build();
 
-            final String dvjId = Long.toString(resultSet.getLong("DVJ_ID"));
             final String description = resultSet.getString("description");
             log.debug("Read cancellation for route {} with  dvjId {} and description '{}'",
                     routeId, dvjId, description);
