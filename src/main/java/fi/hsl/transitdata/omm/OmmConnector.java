@@ -58,24 +58,29 @@ public class OmmConnector {
                 "  INNER JOIN ptDOI4_Community.dbo.ObjectType AS OT ON OT.Number = KT.ExtendsObjectTypeNumber" +
                 "  WHERE DC.[type] = 'CANCEL_DEPARTURE' AND AD.[type] = 'CANCEL_ENTIRE_DEPARTURE'" +
                 "  AND BLM.language_code = 'fi'" +
-                "  AND DC.valid_to > ?" +
+                "  AND " +
+                "       (DC.valid_to > ?" +
+                // workaround to get deleted cancellations, because valid_to-field is nulled for these ones.
+                "           OR (DC.valid_to IS NULL AND AD.[status] = 'deleted' AND DVJ.OperatingDayDate >= ?))" +
                 "  AND (KT.Name = 'JoreIdentity' OR KT.Name = 'JoreRouteIdentity' OR KT.Name = 'RouteName') AND OT.Name = 'VehicleJourney'" +
                 "  AND VJT.IsWorkedOnDirectionOfLineGid IS NOT NULL" +
                 "  AND DVJ.IsReplacedById IS NULL" +
                 "  ORDER BY DC.last_modified;";
     }
 
-    private String localDatetimeAsString(String zoneId) {
-        return localDatetimeAsString(Instant.now(), zoneId);
-    }
-
     static String localDatetimeAsString(Instant instant, String zoneId) {
         return DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(instant.atZone(ZoneId.of(zoneId)));
     }
 
+    static String localDateAsString(Instant instant, String zoneId) {
+        return DateTimeFormatter.ofPattern("yyyy-MM-dd").format(instant.atZone(ZoneId.of(zoneId)));
+    }
+
     public void queryAndProcessResults() throws SQLException, PulsarClientException {
         //Let's use Strings in the query since JDBC driver tends to convert timestamps automatically to local jvm time.
-        String now = localDatetimeAsString(timezone);
+        Instant now = Instant.now();
+        String nowDateTime = localDatetimeAsString(now, timezone);
+        String nowDate = localDateAsString(now, timezone);
 
         log.info("Querying results from database with timestamp {}", now);
         long queryStartTime = System.currentTimeMillis();
@@ -83,7 +88,8 @@ public class OmmConnector {
         log.trace("Running query " + queryString);
 
         try (PreparedStatement statement = dbConnection.prepareStatement(queryString)) {
-            statement.setString(1, now);
+            statement.setString(1, nowDateTime);
+            statement.setString(2, nowDate);
 
             ResultSet resultSet = statement.executeQuery();
             handler.handleAndSend(resultSet);
