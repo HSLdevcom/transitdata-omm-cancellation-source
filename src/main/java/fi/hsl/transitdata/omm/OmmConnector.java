@@ -38,6 +38,7 @@ public class OmmConnector {
                 "      ,DC.[valid_to]" +
                 "      ,DC.[last_modified] AS dev_case_last_modified" +
                 "      ,AD.last_modified AS affected_departure_last_modified" +
+                "      ,AD.[status] AS affected_departure_status " +
                 "      ,BLM.[description]" +
                 "      ,CONVERT(CHAR(16), DVJ.Id) AS DVJ_ID, KVV.StringValue AS ROUTE_NAME" +
                 "      ,CONVERT(INTEGER, SUBSTRING(CONVERT(CHAR(16), VJT.IsWorkedOnDirectionOfLineGid), 12, 1)) - 1 AS DIRECTION" +
@@ -58,7 +59,6 @@ public class OmmConnector {
                 "  WHERE DC.[type] = 'CANCEL_DEPARTURE' AND AD.[type] = 'CANCEL_ENTIRE_DEPARTURE'" +
                 "  AND BLM.language_code = 'fi'" +
                 "  AND DC.valid_to > ?" +
-                "  AND AD.[status] <> 'deleted'" +
                 "  AND (KT.Name = 'JoreIdentity' OR KT.Name = 'JoreRouteIdentity' OR KT.Name = 'RouteName') AND OT.Name = 'VehicleJourney'" +
                 "  AND VJT.IsWorkedOnDirectionOfLineGid IS NOT NULL" +
                 "  AND DVJ.IsReplacedById IS NULL" +

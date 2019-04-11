@@ -46,39 +46,56 @@ public class OmmCancellationHandler {
         }
     }
 
+    enum AffectedDeparturesStatus {
+        active, deleted
+    }
+
     public void handleAndSend(ResultSet resultSet) throws SQLException, PulsarClientException {
         while (resultSet.next()) {
+            try {
+                InternalMessages.TripCancellation.Builder builder = InternalMessages.TripCancellation.newBuilder();
 
-            InternalMessages.TripCancellation.Builder builder = InternalMessages.TripCancellation.newBuilder();
+                String routeId = resultSet.getString("ROUTE_NAME");
+                builder.setRouteId(routeId);
+                int joreDirection = resultSet.getInt("DIRECTION");
+                builder.setDirectionId(joreDirection);
+                String startDate = resultSet.getString("OPERATING_DAY"); // yyyyMMdd
+                builder.setStartDate(startDate);
+                String starTime = resultSet.getString("START_TIME"); // HH:mm:ss in local time
+                builder.setStartTime(starTime);
 
-            String routeId = resultSet.getString("ROUTE_NAME");
-            builder.setRouteId(routeId);
-            int joreDirection = resultSet.getInt("DIRECTION");
-            builder.setDirectionId(joreDirection);
-            String startDate = resultSet.getString("OPERATING_DAY"); // yyyyMMdd
-            builder.setStartDate(startDate);
-            String starTime = resultSet.getString("START_TIME"); // HH:mm:ss in local time
-            builder.setStartTime(starTime);
+                String adStatus = resultSet.getString("affected_departure_status");
+                // If active -> cancellation is valid, if deleted then the cancellation has been cancelled.
+                if (adStatus != null && AffectedDeparturesStatus.valueOf(adStatus.toLowerCase()) == AffectedDeparturesStatus.deleted) {
+                    log.debug("Cancelling a cancellation for route {}:{}:{}:{}", routeId, startDate, starTime, joreDirection);
+                    builder.setStatus(InternalMessages.TripCancellation.Status.RUNNING);
+                }
+                else {
+                    builder.setStatus(InternalMessages.TripCancellation.Status.CANCELED);
+                }
 
-            //Version number is defined in the proto file as default value but we still need to set it since it's a required field
-            builder.setSchemaVersion(builder.getSchemaVersion());
-            builder.setStatus(InternalMessages.TripCancellation.Status.CANCELED);
-            final String dvjId = Long.toString(resultSet.getLong("DVJ_ID"));
-            builder.setTripId(dvjId);
+                //Version number is defined in the proto file as default value but we still need to set it since it's a required field
+                builder.setSchemaVersion(builder.getSchemaVersion());
+                final String dvjId = Long.toString(resultSet.getLong("DVJ_ID"));
+                builder.setTripId(dvjId);
 
-            final InternalMessages.TripCancellation cancellation = builder.build();
+                final InternalMessages.TripCancellation cancellation = builder.build();
 
-            final String description = resultSet.getString("description");
-            log.debug("Read cancellation for route {} with  dvjId {} and description '{}'",
-                    routeId, dvjId, description);
+                final String description = resultSet.getString("description");
+                log.debug("Read cancellation for route {} with  dvjId {} and description '{}'",
+                        routeId, dvjId, description);
 
-            Timestamp timestamp = resultSet.getTimestamp("affected_departure_last_modified"); //other option is to use dev_case_last_modified
-            Optional<Long> epochTimestamp = toUtcEpochMs(timestamp.toString());
-            if (!epochTimestamp.isPresent()) {
-                log.error("Failed to parse epoch timestamp from resultset: {}", timestamp.toString());
+                Timestamp timestamp = resultSet.getTimestamp("affected_departure_last_modified"); //other option is to use dev_case_last_modified
+                Optional<Long> epochTimestamp = toUtcEpochMs(timestamp.toString());
+                if (!epochTimestamp.isPresent()) {
+                    log.error("Failed to parse epoch timestamp from resultset: {}", timestamp.toString());
+                }
+                else {
+                    sendPulsarMessage(cancellation, epochTimestamp.get(), dvjId);
+                }
             }
-            else {
-                sendPulsarMessage(cancellation, epochTimestamp.get(), dvjId);
+            catch (IllegalArgumentException iae) {
+                log.error("Error while parsing the cancellation resultset", iae);
             }
         }
     }
