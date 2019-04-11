@@ -13,13 +13,43 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class OmmCancellationHandler {
     static final Logger log = LoggerFactory.getLogger(OmmCancellationHandler.class);
 
     String timeZone;
     private final Producer<byte[]> producer;
+
+    enum OMMAffectedDeparturesStatus {
+        active, deleted
+    }
+
+    class CancellationData {
+        private InternalMessages.TripCancellation payload;
+        private long timestampEpochMs;
+        private String dvjId;
+
+        public CancellationData(InternalMessages.TripCancellation payload, long timestampEpochMs, String dvjId) {
+            this.payload = payload;
+            this.timestampEpochMs = timestampEpochMs;
+            this.dvjId = dvjId;
+        }
+
+        public String getDvjId() {
+            return dvjId;
+        }
+
+        public InternalMessages.TripCancellation getPayload() {
+            return payload;
+        }
+
+        public long getTimestamp() {
+            return timestampEpochMs;
+        }
+    }
+
 
     public OmmCancellationHandler(PulsarApplicationContext context) {
         producer = context.getProducer();
@@ -46,11 +76,14 @@ public class OmmCancellationHandler {
         }
     }
 
-    enum AffectedDeparturesStatus {
-        active, deleted
+    public void handleAndSend(ResultSet resultSet) throws SQLException, PulsarClientException {
+        List<CancellationData> cancellations = parseData(resultSet);
+        cancellations = filterDuplicates(cancellations);
+        sendCancellations(cancellations);
     }
 
-    public void handleAndSend(ResultSet resultSet) throws SQLException, PulsarClientException {
+    private List<CancellationData> parseData(ResultSet resultSet) throws SQLException {
+        List<CancellationData> cancellations = new LinkedList<>();
         while (resultSet.next()) {
             try {
                 InternalMessages.TripCancellation.Builder builder = InternalMessages.TripCancellation.newBuilder();
@@ -66,7 +99,7 @@ public class OmmCancellationHandler {
 
                 String adStatus = resultSet.getString("affected_departure_status");
                 // If active -> cancellation is valid, if deleted then the cancellation has been cancelled.
-                if (adStatus != null && AffectedDeparturesStatus.valueOf(adStatus.toLowerCase()) == AffectedDeparturesStatus.deleted) {
+                if (adStatus != null && OMMAffectedDeparturesStatus.valueOf(adStatus.toLowerCase()) == OMMAffectedDeparturesStatus.deleted) {
                     log.debug("Cancelling a cancellation for route {}:{}:{}:{}", routeId, startDate, starTime, joreDirection);
                     builder.setStatus(InternalMessages.TripCancellation.Status.RUNNING);
                 }
@@ -91,12 +124,58 @@ public class OmmCancellationHandler {
                     log.error("Failed to parse epoch timestamp from resultset: {}", timestamp.toString());
                 }
                 else {
-                    sendPulsarMessage(cancellation, epochTimestamp.get(), dvjId);
+                    CancellationData data = new CancellationData(cancellation, epochTimestamp.get(), dvjId);
+                    cancellations.add(data);
                 }
             }
             catch (IllegalArgumentException iae) {
                 log.error("Error while parsing the cancellation resultset", iae);
             }
+        }
+        return cancellations;
+    }
+
+    List<CancellationData> filterDuplicates(List<CancellationData> cancellations) {
+        List<CancellationData> filtered = new LinkedList<>();
+
+        // Having even one active cancellation means that the trip is cancelled (or actually we should always have either 1 or 0).
+
+        // Cancelling a cancelled cancellation can produce us duplicate rows in the data, if this is done multiple times.
+        // We need to find out if there's more than one rows per dvjId. If that is so we can deduct which is the correct one to send.
+        Map<String, List<CancellationData>> groupedByDvjId = cancellations.stream().collect(Collectors.groupingBy(CancellationData::getDvjId));
+        for(Map.Entry<String, List<CancellationData>> entry: groupedByDvjId.entrySet()) {
+            List<CancellationData> dataForThisDvjId = entry.getValue();
+
+            Map<InternalMessages.TripCancellation.Status, List<CancellationData>> groupedByStatus = dataForThisDvjId
+                    .stream()
+                    .collect(Collectors.groupingBy(data -> data.payload.getStatus()));
+
+            if (groupedByStatus.containsKey(InternalMessages.TripCancellation.Status.CANCELED)) {
+                //Cancellation always wins, there should be always only one of these
+                List<CancellationData> activeCancellations = groupedByStatus.get(InternalMessages.TripCancellation.Status.CANCELED);
+                if (activeCancellations.size() != 1) {
+                    log.warn("Something strange in OMM, more than one active cancellation");
+                }
+                filtered.add(activeCancellations.get(0));
+            }
+            else if (groupedByStatus.containsKey(InternalMessages.TripCancellation.Status.RUNNING)){
+                // Let's pick the latest, although doesn't really matter since these just represent cancellation of cancellation,
+                // no matter how many times it has been cancelled
+                List<CancellationData> cancelledCancellations = groupedByStatus.get(InternalMessages.TripCancellation.Status.RUNNING);
+                cancelledCancellations.sort(Comparator.comparingLong(CancellationData::getTimestamp));
+                filtered.add(cancelledCancellations.get(0));
+            }
+            else {
+                log.error("This is impossible, found Cancellation which is neither canceled or running!");
+            }
+        }
+
+        return filtered;
+    }
+
+    private void sendCancellations(List<CancellationData> cancellations) throws PulsarClientException {
+        for (CancellationData data: cancellations) {
+            sendPulsarMessage(data.payload, data.timestampEpochMs, data.dvjId);
         }
     }
 
