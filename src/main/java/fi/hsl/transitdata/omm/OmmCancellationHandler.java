@@ -20,13 +20,13 @@ public class OmmCancellationHandler {
     static final Logger log = LoggerFactory.getLogger(OmmCancellationHandler.class);
 
     String timeZone;
-    private final Producer<byte[]> producer;
+    private Producer<byte[]> producer;
 
     enum OMMAffectedDeparturesStatus {
         active, deleted
     }
 
-    class CancellationData {
+    static class CancellationData {
         private InternalMessages.TripCancellation payload;
         private long timestampEpochMs;
         private String dvjId;
@@ -135,7 +135,7 @@ public class OmmCancellationHandler {
         return cancellations;
     }
 
-    List<CancellationData> filterDuplicates(List<CancellationData> cancellations) {
+    static List<CancellationData> filterDuplicates(List<CancellationData> cancellations) {
         List<CancellationData> filtered = new LinkedList<>();
 
         // Having even one active cancellation means that the trip is cancelled (or actually we should always have either 1 or 0).
