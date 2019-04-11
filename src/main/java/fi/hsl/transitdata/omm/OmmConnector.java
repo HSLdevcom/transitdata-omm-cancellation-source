@@ -41,7 +41,7 @@ public class OmmConnector {
                 "      ,AD.[status] AS affected_departure_status " +
                 "      ,BLM.[description]" +
                 "      ,CONVERT(CHAR(16), DVJ.Id) AS DVJ_ID, KVV.StringValue AS ROUTE_NAME" +
-                "      ,CONVERT(INTEGER, SUBSTRING(CONVERT(CHAR(16), VJT.IsWorkedOnDirectionOfLineGid), 12, 1)) - 1 AS DIRECTION" +
+                "      ,CONVERT(INTEGER, SUBSTRING(CONVERT(CHAR(16), VJT.IsWorkedOnDirectionOfLineGid), 12, 1)) AS DIRECTION" +
                 "      ,CONVERT(CHAR(8), DVJ.OperatingDayDate, 112) AS OPERATING_DAY, " +
                 "           RIGHT('0' + (CONVERT(VARCHAR(2), (DATEDIFF(HOUR, '1900-01-01', PlannedStartOffsetDateTime)))), 2) + ':' + " +
                 "           RIGHT('0' + CONVERT(VARCHAR(2), ((DATEDIFF(MINUTE, '1900-01-01', PlannedStartOffsetDateTime))- " +
