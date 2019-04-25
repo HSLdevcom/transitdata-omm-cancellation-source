@@ -36,10 +36,15 @@ public class OmmConnector {
         return "SELECT " +
                 "      DC.[valid_from]" +
                 "      ,DC.[valid_to]" +
+                "      ,DC.[type] AS dev_case_type" +
                 "      ,DC.[last_modified] AS dev_case_last_modified" +
                 "      ,AD.last_modified AS affected_departure_last_modified" +
                 "      ,AD.[status] AS affected_departure_status " +
+                "      ,AD.[type] AS affected_departure_type" +
+                "      ,BLM.[title]" +
                 "      ,BLM.[description]" +
+                "      ,B.category" +
+                "      ,B.sub_category" +
                 "      ,CONVERT(CHAR(16), DVJ.Id) AS DVJ_ID, KVV.StringValue AS ROUTE_NAME" +
                 "      ,CONVERT(INTEGER, SUBSTRING(CONVERT(CHAR(16), VJT.IsWorkedOnDirectionOfLineGid), 12, 1)) AS DIRECTION" +
                 "      ,CONVERT(CHAR(8), DVJ.OperatingDayDate, 112) AS OPERATING_DAY, " +
@@ -49,6 +54,7 @@ public class OmmConnector {
                 "  FROM [OMM_Community].[dbo].[deviation_cases] AS DC" +
                 "  LEFT JOIN OMM_Community.dbo.affected_departures AS AD ON DC.deviation_case_id = AD.deviation_case_id" +
                 "  LEFT JOIN OMM_Community.dbo.bulletin_localized_messages AS BLM ON DC.bulletin_id = BLM.bulletins_id" +
+                "  LEFT JOIN OMM_Community.dbo.bulletins AS B ON DC.bulletin_id = B.bulletins_id" +
                 "  INNER JOIN ptDOI4_Community.dbo.DatedVehicleJourney AS DVJ ON DVJ.Id = AD.departure_id" +
                 "  INNER JOIN ptDOI4_Community.dbo.VehicleJourney AS VJ ON VJ.Id = DVJ.IsBasedOnVehicleJourneyId" +
                 "  INNER JOIN ptDOI4_Community.dbo.VehicleJourneyTemplate AS VJT ON VJT.Id = DVJ.IsBasedOnVehicleJourneyTemplateId" +
