@@ -44,7 +44,7 @@ public class OmmConnector {
                 "      ,BLM.[title] AS TITLE" +
                 "      ,BLM.[description] AS DESCRIPTION" +
                 "      ,B.category AS CATEGORY" +
-                "      ,B.sub_category as SUB_CATEGORY" +
+                "      ,B.sub_category AS SUB_CATEGORY" +
                 "      ,CONVERT(CHAR(16), DVJ.Id) AS DVJ_ID, KVV.StringValue AS ROUTE_NAME" +
                 "      ,CONVERT(INTEGER, SUBSTRING(CONVERT(CHAR(16), VJT.IsWorkedOnDirectionOfLineGid), 12, 1)) AS DIRECTION" +
                 "      ,CONVERT(CHAR(8), DVJ.OperatingDayDate, 112) AS OPERATING_DAY, " +
