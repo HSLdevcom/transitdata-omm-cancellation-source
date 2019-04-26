@@ -34,17 +34,17 @@ public class OmmConnector {
 
     private String createQuery() {
         return "SELECT " +
-                "      DC.[valid_from]" +
-                "      ,DC.[valid_to]" +
-                "      ,DC.[type] AS dev_case_type" +
-                "      ,DC.[last_modified] AS dev_case_last_modified" +
-                "      ,AD.last_modified AS affected_departure_last_modified" +
-                "      ,AD.[status] AS affected_departure_status " +
-                "      ,AD.[type] AS affected_departure_type" +
-                "      ,BLM.[title]" +
-                "      ,BLM.[description]" +
-                "      ,B.category" +
-                "      ,B.sub_category" +
+                "      DC.[valid_from] AS VALID_FROM" +
+                "      ,DC.[valid_to] AS VALID_TO" +
+                "      ,DC.[type] AS DEVIATION_CASES_TYPE" +
+                "      ,DC.[last_modified] AS DEVIATION_CASES_LAST_MODIFIED" +
+                "      ,AD.last_modified AS AFFECTED_DEPARTURES_LAST_MODIFIED" +
+                "      ,AD.[status] AS AFFECTED_DEPARTURES_STATUS " +
+                "      ,AD.[type] AS AFFECTED_DEPARTURES_TYPE" +
+                "      ,BLM.[title] AS TITLE" +
+                "      ,BLM.[description] AS DESCRIPTION" +
+                "      ,B.category AS CATEGORY" +
+                "      ,B.sub_category as SUB_CATEGORY" +
                 "      ,CONVERT(CHAR(16), DVJ.Id) AS DVJ_ID, KVV.StringValue AS ROUTE_NAME" +
                 "      ,CONVERT(INTEGER, SUBSTRING(CONVERT(CHAR(16), VJT.IsWorkedOnDirectionOfLineGid), 12, 1)) AS DIRECTION" +
                 "      ,CONVERT(CHAR(8), DVJ.OperatingDayDate, 112) AS OPERATING_DAY, " +
