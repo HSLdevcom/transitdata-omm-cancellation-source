@@ -58,8 +58,8 @@ public class OmmCancellationHandler {
         return InternalMessages.TripCancellation.AffectedDeparturesType.valueOf(affectedDeparturesType);
     }
 
-    public static InternalMessages.TripCancellation.Category toTripCancellationCategory(final String category) {
-        return InternalMessages.TripCancellation.Category.valueOf(category);
+    public static InternalMessages.Category toTripCancellationCategory(final String category) {
+        return InternalMessages.Category.valueOf(category);
     }
 
     public static InternalMessages.TripCancellation.SubCategory toTripCancellationSubCategory(final String subCategory) {
