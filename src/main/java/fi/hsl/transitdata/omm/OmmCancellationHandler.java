@@ -50,6 +50,22 @@ public class OmmCancellationHandler {
         }
     }
 
+    public static InternalMessages.TripCancellation.DeviationCasesType toTripCancellationDeviationCasesType(final String deviationCasesType) {
+        return InternalMessages.TripCancellation.DeviationCasesType.valueOf(deviationCasesType);
+    }
+
+    public static InternalMessages.TripCancellation.AffectedDeparturesType toTripCancellationAffectedDeparturesType(final String affectedDeparturesType) {
+        return InternalMessages.TripCancellation.AffectedDeparturesType.valueOf(affectedDeparturesType);
+    }
+
+    public static InternalMessages.Category toTripCancellationCategory(final String category) {
+        return InternalMessages.Category.valueOf(category);
+    }
+
+    public static InternalMessages.TripCancellation.SubCategory toTripCancellationSubCategory(final String subCategory) {
+        return InternalMessages.TripCancellation.SubCategory.valueOf(subCategory);
+    }
+
 
     public OmmCancellationHandler(PulsarApplicationContext context) {
         producer = context.getProducer();
@@ -97,7 +113,7 @@ public class OmmCancellationHandler {
                 String starTime = resultSet.getString("START_TIME"); // HH:mm:ss in local time
                 builder.setStartTime(starTime);
 
-                String adStatus = resultSet.getString("affected_departure_status");
+                String adStatus = resultSet.getString("AFFECTED_DEPARTURES_STATUS");
                 // If active -> cancellation is valid, if deleted then the cancellation has been cancelled.
                 if (adStatus != null && OMMAffectedDeparturesStatus.valueOf(adStatus.toLowerCase()) == OMMAffectedDeparturesStatus.deleted) {
                     log.debug("Cancelling a cancellation for route {}:{}:{}:{}", routeId, startDate, starTime, joreDirection);
@@ -111,14 +127,21 @@ public class OmmCancellationHandler {
                 builder.setSchemaVersion(builder.getSchemaVersion());
                 final String dvjId = Long.toString(resultSet.getLong("DVJ_ID"));
                 builder.setTripId(dvjId);
+                
+                builder.setDeviationCasesType(toTripCancellationDeviationCasesType(resultSet.getString("DEVIATION_CASES_TYPE")));
+                builder.setAffectedDeparturesType(toTripCancellationAffectedDeparturesType(resultSet.getString("AFFECTED_DEPARTURES_TYPE")));
+                builder.setTitle(resultSet.getString("TITLE"));
+                final String description = resultSet.getString("DESCRIPTION");
+                builder.setDescription(description);
+                builder.setCategory(toTripCancellationCategory(resultSet.getString("CATEGORY")));
+                builder.setSubCategory(toTripCancellationSubCategory(resultSet.getString("SUB_CATEGORY")));
 
                 final InternalMessages.TripCancellation cancellation = builder.build();
 
-                final String description = resultSet.getString("description");
                 log.debug("Read cancellation for route {} with  dvjId {} and description '{}'",
                         routeId, dvjId, description);
 
-                Timestamp timestamp = resultSet.getTimestamp("affected_departure_last_modified"); //other option is to use dev_case_last_modified
+                Timestamp timestamp = resultSet.getTimestamp("AFFECTED_DEPARTURES_LAST_MODIFIED"); //other option is to use DEVIATION_CASES_LAST_MODIFIED
                 Optional<Long> epochTimestamp = toUtcEpochMs(timestamp.toString());
                 if (!epochTimestamp.isPresent()) {
                     log.error("Failed to parse epoch timestamp from resultset: {}", timestamp.toString());
