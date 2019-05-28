@@ -21,12 +21,10 @@ public class Main {
     private static final Logger log = LoggerFactory.getLogger(Main.class);
 
     public static void main(String[] args) {
+        final Config config = ConfigParser.createConfig();
 
-        try {
-            final Config config = ConfigParser.createConfig();
+        try (final PulsarApplication app = PulsarApplication.newInstance(config)) {
             final String connectionString = readConnectionString();
-
-            final PulsarApplication app = PulsarApplication.newInstance(config);
             final PulsarApplicationContext context = app.getContext();
             final OmmConnector omm = OmmConnector.newInstance(context, connectionString);
 
@@ -46,8 +44,6 @@ public class Main {
                     closeApplication(app, scheduler);
                 }
             }, 0, pollIntervalInSeconds, TimeUnit.SECONDS);
-
-
         } catch (Exception e) {
             log.error("Exception at Main: " + e.getMessage(), e);
         }
