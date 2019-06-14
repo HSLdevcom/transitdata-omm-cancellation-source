@@ -21,17 +21,18 @@ public class Main {
     private static final Logger log = LoggerFactory.getLogger(Main.class);
 
     public static void main(String[] args) {
+        PulsarApplication appRef = null;
+        final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
         try {
             final Config config = ConfigParser.createConfig();
             final String connectionString = readConnectionString();
-
             final PulsarApplication app = PulsarApplication.newInstance(config);
+            appRef = app;
             final PulsarApplicationContext context = app.getContext();
             final OmmConnector omm = OmmConnector.newInstance(context, connectionString);
-
             final int pollIntervalInSeconds = config.getInt("omm.interval");
-            final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+
             scheduler.scheduleAtFixedRate(() -> {
                 try {
                     omm.queryAndProcessResults();
@@ -46,17 +47,20 @@ public class Main {
                     closeApplication(app, scheduler);
                 }
             }, 0, pollIntervalInSeconds, TimeUnit.SECONDS);
-
-
         } catch (Exception e) {
             log.error("Exception at Main: " + e.getMessage(), e);
+            closeApplication(appRef, scheduler);
         }
     }
 
     private static void closeApplication(PulsarApplication app, ScheduledExecutorService scheduler) {
         log.warn("Closing application");
-        scheduler.shutdown();
-        app.close();
+        if (scheduler != null && !scheduler.isShutdown()) {
+            scheduler.shutdown();
+        }
+        if (app != null) {
+            app.close();
+        }
     }
 
 
