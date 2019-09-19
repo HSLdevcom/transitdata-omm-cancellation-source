@@ -2,9 +2,11 @@ package fi.hsl.transitdata.omm;
 
 import fi.hsl.common.pulsar.PulsarApplicationContext;
 import org.apache.pulsar.client.api.PulsarClientException;
+import fi.hsl.common.files.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.InputStream;
 import java.sql.*;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -19,59 +21,31 @@ public class OmmConnector {
     private final String queryString;
     private final String timezone;
 
-    private OmmConnector(PulsarApplicationContext context, Connection connection) {
+    private OmmConnector(PulsarApplicationContext context, Connection connection, CancellationSourceType sourceType) {
         handler = new OmmCancellationHandler(context);
         dbConnection = connection;
-        queryString = createQuery();
+        queryString = createQuery(sourceType);
         timezone = context.getConfig().getString("omm.timezone");
         log.info("Using timezone " + timezone);
     }
 
-    public static OmmConnector newInstance(PulsarApplicationContext context, String jdbcConnectionString) throws SQLException {
+    public static OmmConnector newInstance(PulsarApplicationContext context, String jdbcConnectionString, CancellationSourceType sourceType) throws SQLException {
         Connection connection = DriverManager.getConnection(jdbcConnectionString);
-        return new OmmConnector(context, connection);
+        return new OmmConnector(context, connection, sourceType);
     }
 
-    private String createQuery() {
-        return "SELECT " +
-                "      DC.[valid_from] AS VALID_FROM" +
-                "      ,DC.[valid_to] AS VALID_TO" +
-                "      ,DC.[type] AS DEVIATION_CASES_TYPE" +
-                "      ,DC.[last_modified] AS DEVIATION_CASES_LAST_MODIFIED" +
-                "      ,AD.last_modified AS AFFECTED_DEPARTURES_LAST_MODIFIED" +
-                "      ,AD.[status] AS AFFECTED_DEPARTURES_STATUS " +
-                "      ,AD.[type] AS AFFECTED_DEPARTURES_TYPE" +
-                "      ,BLM.[title] AS TITLE" +
-                "      ,BLM.[description] AS DESCRIPTION" +
-                "      ,B.category AS CATEGORY" +
-                "      ,B.sub_category AS SUB_CATEGORY" +
-                "      ,CONVERT(CHAR(16), DVJ.Id) AS DVJ_ID, KVV.StringValue AS ROUTE_NAME" +
-                "      ,CONVERT(INTEGER, SUBSTRING(CONVERT(CHAR(16), VJT.IsWorkedOnDirectionOfLineGid), 12, 1)) AS DIRECTION" +
-                "      ,CONVERT(CHAR(8), DVJ.OperatingDayDate, 112) AS OPERATING_DAY, " +
-                "           RIGHT('0' + (CONVERT(VARCHAR(2), (DATEDIFF(HOUR, '1900-01-01', PlannedStartOffsetDateTime)))), 2) + ':' + " +
-                "           RIGHT('0' + CONVERT(VARCHAR(2), ((DATEDIFF(MINUTE, '1900-01-01', PlannedStartOffsetDateTime))- " +
-                "                ((DATEDIFF(HOUR, '1900-01-01', PlannedStartOffsetDateTime) * 60)))), 2) + ':00' AS START_TIME " +
-                "  FROM [OMM_Community].[dbo].[deviation_cases] AS DC" +
-                "  LEFT JOIN OMM_Community.dbo.affected_departures AS AD ON DC.deviation_case_id = AD.deviation_case_id" +
-                "  LEFT JOIN OMM_Community.dbo.bulletin_localized_messages AS BLM ON DC.bulletin_id = BLM.bulletins_id" +
-                "  LEFT JOIN OMM_Community.dbo.bulletins AS B ON DC.bulletin_id = B.bulletins_id" +
-                "  INNER JOIN ptDOI4_Community.dbo.DatedVehicleJourney AS DVJ ON DVJ.Id = AD.departure_id" +
-                "  INNER JOIN ptDOI4_Community.dbo.VehicleJourney AS VJ ON VJ.Id = DVJ.IsBasedOnVehicleJourneyId" +
-                "  INNER JOIN ptDOI4_Community.dbo.VehicleJourneyTemplate AS VJT ON VJT.Id = DVJ.IsBasedOnVehicleJourneyTemplateId" +
-                "  INNER JOIN ptDOI4_Community.T.KeyVariantValue AS KVV ON KVV.IsForObjectId = VJ.Id" +
-                "  INNER JOIN ptDOI4_Community.dbo.KeyVariantType AS KVT ON KVT.Id = KVV.IsOfKeyVariantTypeId" +
-                "  INNER JOIN ptDOI4_Community.dbo.KeyType AS KT ON KT.Id = KVT.IsForKeyTypeId" +
-                "  INNER JOIN ptDOI4_Community.dbo.ObjectType AS OT ON OT.Number = KT.ExtendsObjectTypeNumber" +
-                "  WHERE DC.[type] = 'CANCEL_DEPARTURE' AND AD.[type] = 'CANCEL_ENTIRE_DEPARTURE'" +
-                "  AND BLM.language_code = 'fi'" +
-                "  AND " +
-                "       (DC.valid_to > ?" +
-                // workaround to get deleted cancellations, because valid_to-field is nulled for these ones.
-                "           OR (DC.valid_to IS NULL AND AD.[status] = 'deleted' AND DVJ.OperatingDayDate >= ?))" +
-                "  AND (KT.Name = 'JoreIdentity' OR KT.Name = 'JoreRouteIdentity' OR KT.Name = 'RouteName') AND OT.Name = 'VehicleJourney'" +
-                "  AND VJT.IsWorkedOnDirectionOfLineGid IS NOT NULL" +
-                "  AND DVJ.IsReplacedById IS NULL" +
-                "  ORDER BY DC.last_modified;";
+    private String createQuery(CancellationSourceType sourceType) {
+        InputStream stream = (sourceType == CancellationSourceType.FROM_HISTORY)
+                ? getClass().getResourceAsStream("/cancellations_history_current_future.sql")
+                : (sourceType == CancellationSourceType.FROM_NOW)
+                    ? getClass().getResourceAsStream("/cancellations_current_future.sql")
+                    : null;
+        try {
+            return FileUtils.readFileFromStreamOrThrow(stream);
+        } catch (Exception e) {
+            log.error("Error in reading sql from file:", e);
+            return null;
+        }
     }
 
     static String localDatetimeAsString(Instant instant, String zoneId) {
