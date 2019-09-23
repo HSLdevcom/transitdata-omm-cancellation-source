@@ -37,8 +37,8 @@ public class OmmConnector {
     }
 
     private String createQuery(CancellationSourceType sourceType) {
-        InputStream stream = (sourceType == CancellationSourceType.FROM_HISTORY)
-                ? getClass().getResourceAsStream("/cancellations_history_current_future.sql")
+        InputStream stream = (sourceType == CancellationSourceType.FROM_PAST)
+                ? getClass().getResourceAsStream("/cancellations_past_current_future.sql")
                 : (sourceType == CancellationSourceType.FROM_NOW)
                     ? getClass().getResourceAsStream("/cancellations_current_future.sql")
                     : null;
@@ -72,12 +72,12 @@ public class OmmConnector {
         try (PreparedStatement statement = dbConnection.prepareStatement(queryString)) {
             statement.setString(1, nowDateTime);
             statement.setString(2, nowDate);
-            if (sourceType == CancellationSourceType.FROM_HISTORY) {
+            if (sourceType == CancellationSourceType.FROM_PAST) {
                 Instant pastNow = now.minusSeconds(pollIntervalInSeconds);
-                String historyDateTime = localDatetimeAsString(pastNow, timezone);
+                String pastDateTime = localDatetimeAsString(pastNow, timezone);
                 statement.setString(3, nowDateTime);
                 statement.setString(4, nowDate);
-                statement.setString(5, historyDateTime);
+                statement.setString(5, pastDateTime);
             }
 
             ResultSet resultSet = statement.executeQuery();

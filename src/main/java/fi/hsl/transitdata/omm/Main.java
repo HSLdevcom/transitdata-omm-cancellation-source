@@ -28,15 +28,15 @@ public class Main {
             String cancellationsFromTime = ConfigUtils.getEnvOrThrow("CANCELLATIONS_FROM_TIME");
             CancellationSourceType sourceType = CancellationSourceType.fromString(cancellationsFromTime);
 
-            if (sourceType == CancellationSourceType.FROM_HISTORY) {
-                log.info("Creating OMM cancellation source for historical, ongoing and future cancellations");
+            if (sourceType == CancellationSourceType.FROM_PAST) {
+                log.info("Creating OMM cancellation source for past, ongoing and future cancellations");
             }
             else if (sourceType == CancellationSourceType.FROM_NOW) {
                 log.info("Creating OMM cancellation source for ongoing and future cancellations");
             }
             else {
                 log.error("Failed to get source type from CANCELLATIONS_FROM_TIME -env variable, exiting application");
-                log.info("CANCELLATIONS_FROM_TIME -env variable should be either 'NOW' or 'HISTORY'");
+                log.info("CANCELLATIONS_FROM_TIME -env variable should be either 'NOW' or 'PAST'");
                 System.exit(1);
             }
 
