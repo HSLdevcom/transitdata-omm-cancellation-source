@@ -29,8 +29,10 @@ SELECT
     INNER JOIN ptDOI4_Community.dbo.ObjectType AS OT ON OT.Number = KT.ExtendsObjectTypeNumber
     WHERE DC.[type] = 'CANCEL_DEPARTURE' AND AD.[type] = 'CANCEL_ENTIRE_DEPARTURE'
     AND BLM.language_code = 'fi'
-    AND (DC.valid_to > ?
-        OR (DC.valid_to IS NULL AND AD.[status] = 'deleted' AND DVJ.OperatingDayDate >= ?))
+    AND ((DC.valid_to > ? OR (DC.valid_to IS NULL AND AD.[status] = 'deleted' AND DVJ.OperatingDayDate >= ?))
+        OR
+        ((DC.valid_to <= ? OR (DC.valid_to IS NULL AND AD.[status] = 'deleted' AND DVJ.OperatingDayDate <= ?))
+            AND DC.last_modified >= ?))
     AND (KT.Name = 'JoreIdentity' OR KT.Name = 'JoreRouteIdentity' OR KT.Name = 'RouteName') AND OT.Name = 'VehicleJourney'
     AND VJT.IsWorkedOnDirectionOfLineGid IS NOT NULL
     AND DVJ.IsReplacedById IS NULL

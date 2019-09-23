@@ -50,7 +50,7 @@ public class Main {
 
             scheduler.scheduleAtFixedRate(() -> {
                 try {
-                    omm.queryAndProcessResults();
+                    omm.queryAndProcessResults(pollIntervalInSeconds);
                 } catch (PulsarClientException e) {
                     log.error("Pulsar connection error", e);
                     closeApplication(app, scheduler);

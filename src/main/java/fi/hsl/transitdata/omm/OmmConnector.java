@@ -19,12 +19,14 @@ public class OmmConnector {
     private final Connection dbConnection;
     private OmmCancellationHandler handler;
     private final String queryString;
+    private final CancellationSourceType sourceType;
     private final String timezone;
 
-    private OmmConnector(PulsarApplicationContext context, Connection connection, CancellationSourceType sourceType) {
+    private OmmConnector(PulsarApplicationContext context, Connection connection, CancellationSourceType type) {
         handler = new OmmCancellationHandler(context);
         dbConnection = connection;
-        queryString = createQuery(sourceType);
+        queryString = createQuery(type);
+        sourceType = type;
         timezone = context.getConfig().getString("omm.timezone");
         log.info("Using timezone " + timezone);
     }
@@ -56,7 +58,7 @@ public class OmmConnector {
         return DateTimeFormatter.ofPattern("yyyy-MM-dd").format(instant.atZone(ZoneId.of(zoneId)));
     }
 
-    public void queryAndProcessResults() throws SQLException, PulsarClientException {
+    public void queryAndProcessResults(int pollIntervalInSeconds) throws SQLException, PulsarClientException {
         //Let's use Strings in the query since JDBC driver tends to convert timestamps automatically to local jvm time.
         Instant now = Instant.now();
         String nowDateTime = localDatetimeAsString(now, timezone);
@@ -70,6 +72,13 @@ public class OmmConnector {
         try (PreparedStatement statement = dbConnection.prepareStatement(queryString)) {
             statement.setString(1, nowDateTime);
             statement.setString(2, nowDate);
+            if (sourceType == CancellationSourceType.FROM_HISTORY) {
+                Instant pastNow = now.minusSeconds(pollIntervalInSeconds);
+                String historyDateTime = localDatetimeAsString(pastNow, timezone);
+                statement.setString(3, nowDateTime);
+                statement.setString(4, nowDate);
+                statement.setString(5, historyDateTime);
+            }
 
             ResultSet resultSet = statement.executeQuery();
             handler.handleAndSend(resultSet);
