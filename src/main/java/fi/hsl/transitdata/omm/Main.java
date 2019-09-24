@@ -25,7 +25,9 @@ public class Main {
         final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
         try {
-            String cancellationsFromTime = ConfigUtils.getEnvOrThrow("CANCELLATIONS_FROM_TIME");
+            final Config config = ConfigParser.createConfig();
+
+            String cancellationsFromTime = config.getString("omm.cancellationsFromTime");
             CancellationSourceType sourceType = CancellationSourceType.fromString(cancellationsFromTime);
 
             if (sourceType == CancellationSourceType.FROM_PAST) {
@@ -36,11 +38,10 @@ public class Main {
             }
             else {
                 log.error("Failed to get source type from CANCELLATIONS_FROM_TIME -env variable, exiting application");
-                log.info("CANCELLATIONS_FROM_TIME -env variable should be either 'NOW' or 'PAST'");
+                log.info("CANCELLATIONS_FROM_TIME -env variable should be either 'NOW' (for transitdata) or 'PAST' (for transitlog)");
                 System.exit(1);
             }
 
-            final Config config = ConfigParser.createConfig();
             final String connectionString = readConnectionString();
             final PulsarApplication app = PulsarApplication.newInstance(config);
             appRef = app;
