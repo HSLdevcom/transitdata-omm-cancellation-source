@@ -26,16 +26,32 @@ public class Main {
 
         try {
             final Config config = ConfigParser.createConfig();
+
+            String cancellationsFromTime = config.getString("omm.cancellationsFromTime");
+            CancellationSourceType sourceType = CancellationSourceType.fromString(cancellationsFromTime);
+
+            if (sourceType == CancellationSourceType.FROM_PAST) {
+                log.info("Creating OMM cancellation source for past, ongoing and future cancellations");
+            }
+            else if (sourceType == CancellationSourceType.FROM_NOW) {
+                log.info("Creating OMM cancellation source for ongoing and future cancellations");
+            }
+            else {
+                log.error("Failed to get source type from CANCELLATIONS_FROM_TIME -env variable, exiting application");
+                log.info("CANCELLATIONS_FROM_TIME -env variable should be either 'NOW' (for transitdata) or 'PAST' (for transitlog)");
+                System.exit(1);
+            }
+
             final String connectionString = readConnectionString();
             final PulsarApplication app = PulsarApplication.newInstance(config);
             appRef = app;
             final PulsarApplicationContext context = app.getContext();
-            final OmmConnector omm = OmmConnector.newInstance(context, connectionString);
+            final OmmConnector omm = OmmConnector.newInstance(context, connectionString, sourceType);
             final int pollIntervalInSeconds = config.getInt("omm.interval");
 
             scheduler.scheduleAtFixedRate(() -> {
                 try {
-                    omm.queryAndProcessResults();
+                    omm.queryAndProcessResults(pollIntervalInSeconds);
                 } catch (PulsarClientException e) {
                     log.error("Pulsar connection error", e);
                     closeApplication(app, scheduler);
