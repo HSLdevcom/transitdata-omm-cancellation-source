@@ -19,6 +19,8 @@ import java.util.stream.Collectors;
 public class OmmCancellationHandler {
     static final Logger log = LoggerFactory.getLogger(OmmCancellationHandler.class);
 
+    private List<CancellationData> previousCancellations = new LinkedList<>();
+
     String timeZone;
     private Producer<byte[]> producer;
 
@@ -95,6 +97,7 @@ public class OmmCancellationHandler {
     public void handleAndSend(ResultSet resultSet) throws SQLException, PulsarClientException {
         List<CancellationData> cancellations = parseData(resultSet);
         cancellations = filterDuplicates(cancellations);
+        logChangesInCancellations(cancellations); //TODO: disable logging if not needed
         sendCancellations(cancellations);
     }
 
@@ -194,6 +197,27 @@ public class OmmCancellationHandler {
         }
 
         return filtered;
+    }
+
+    private void logChangesInCancellations(List<CancellationData> cancellations) {
+        int newCancellationsCount = 0;
+        int repeatedCancellationsCount = 0;
+        for (CancellationData newCancellation: cancellations) {
+            boolean repeatedCancellation = false;
+            for (CancellationData prevCancellation: previousCancellations) {
+                if (newCancellation.dvjId.equals(prevCancellation.dvjId)) {
+                    repeatedCancellation = true;
+                }
+            }
+            if (repeatedCancellation == true) {
+                repeatedCancellationsCount += 1;
+            } else {
+                newCancellationsCount += 1;
+            }
+        }
+        log.info("Total cancellations count: {} of which {} are new and {} repeated cancellations (based on dvjId)",
+                cancellations.size(), newCancellationsCount, repeatedCancellationsCount);
+        previousCancellations = cancellations;
     }
 
     private void sendCancellations(List<CancellationData> cancellations) throws PulsarClientException {
