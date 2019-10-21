@@ -101,7 +101,9 @@ public class OmmConnector {
             handler.handleAndSend(resultSet);
 
             long elapsed = System.currentTimeMillis() - queryStartTime;
-            log.info("Messages handled. Total query and processing time: {} ms", elapsed);
+            if (elapsed > 4000) {
+                log.warn("Slow querying & handling of cancellations. Total query and processing time was: {} ms", elapsed);
+            }
         }
         catch (Exception e) {
             log.error("Error while  querying and processing messages", e);
