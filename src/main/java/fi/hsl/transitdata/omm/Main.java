@@ -28,6 +28,7 @@ public class Main {
             final Config config = ConfigParser.createConfig();
 
             String cancellationsFromTime = config.getString("omm.cancellationsFromTime");
+            // omm.cancellationsFromTime should have value "NOW" or "PAST" (NOW for transitdata, PAST for transitlog)
             CancellationSourceType sourceType = CancellationSourceType.fromString(cancellationsFromTime);
 
             if (sourceType == CancellationSourceType.FROM_PAST) {
