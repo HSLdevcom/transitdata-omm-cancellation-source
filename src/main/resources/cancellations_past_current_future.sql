@@ -1,4 +1,5 @@
 SELECT
+	DC.deviation_case_id AS deviation_case_id,
     DC.[valid_from] AS VALID_FROM
     ,DC.[valid_to] AS VALID_TO
     ,DC.[type] AS DEVIATION_CASES_TYPE
