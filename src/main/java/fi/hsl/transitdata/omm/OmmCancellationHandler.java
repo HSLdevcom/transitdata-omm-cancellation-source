@@ -235,10 +235,11 @@ public class OmmCancellationHandler {
                     .property(TransitdataProperties.KEY_PROTOBUF_SCHEMA, TransitdataProperties.ProtobufSchema.InternalMessagesTripCancellation.toString())
                     .send();
 
-            log.info("Produced a cancellation for trip: " + tripCancellation.getRouteId() + "/" +
-                    tripCancellation.getDirectionId() + "-" + tripCancellation.getStartTime() + "-" +
-                    tripCancellation.getStartDate());
-
+            if (tripCancellation.getDeviationCasesType() == InternalMessages.TripCancellation.DeviationCasesType.CANCEL_DEPARTURE && tripCancellation.getAffectedDeparturesType() == InternalMessages.TripCancellation.AffectedDeparturesType.CANCEL_ENTIRE_DEPARTURE) {
+                log.info("Produced entire departure cancellation for trip: " + tripCancellation.getRouteId() + "/" +
+                        tripCancellation.getDirectionId() + "-" + tripCancellation.getStartTime() + "-" +
+                        tripCancellation.getStartDate());
+            }
         }
         catch (PulsarClientException pe) {
             log.error("Failed to send message to Pulsar", pe);
