@@ -39,8 +39,8 @@ public class OmmCancellationHandlerTest {
         long dvjId = MockDataUtils.generateValidJoreId();
         List<OmmCancellationHandler.CancellationData> input = new LinkedList<>();
 
-        input.add(mockCancellation(InternalMessages.TripCancellation.Status.CANCELED, dvjId));
-        input.add(mockCancellation(InternalMessages.TripCancellation.Status.RUNNING, dvjId));
+        input.add(mockCancellation(InternalMessages.TripCancellation.Status.CANCELED, dvjId, 1));
+        input.add(mockCancellation(InternalMessages.TripCancellation.Status.RUNNING, dvjId, 1));
         List<OmmCancellationHandler.CancellationData> result = OmmCancellationHandler.filterDuplicates(input);
         assertEquals(1, result.size());
         assertEquals(InternalMessages.TripCancellation.Status.CANCELED, result.get(0).getPayload().getStatus());
@@ -51,8 +51,8 @@ public class OmmCancellationHandlerTest {
         long dvjId = MockDataUtils.generateValidJoreId();
         List<OmmCancellationHandler.CancellationData> input = new LinkedList<>();
 
-        input.add(mockCancellation(InternalMessages.TripCancellation.Status.RUNNING, dvjId));
-        input.add(mockCancellation(InternalMessages.TripCancellation.Status.RUNNING, dvjId));
+        input.add(mockCancellation(InternalMessages.TripCancellation.Status.RUNNING, dvjId, 1));
+        input.add(mockCancellation(InternalMessages.TripCancellation.Status.RUNNING, dvjId, 1));
         List<OmmCancellationHandler.CancellationData> result = OmmCancellationHandler.filterDuplicates(input);
         assertEquals(1, result.size());
         assertEquals(InternalMessages.TripCancellation.Status.RUNNING, result.get(0).getPayload().getStatus());
@@ -64,8 +64,8 @@ public class OmmCancellationHandlerTest {
         long secondDvjId = firstDvjId++;
         List<OmmCancellationHandler.CancellationData> input = new LinkedList<>();
 
-        input.add(mockCancellation(InternalMessages.TripCancellation.Status.RUNNING, firstDvjId));
-        input.add(mockCancellation(InternalMessages.TripCancellation.Status.RUNNING, secondDvjId));
+        input.add(mockCancellation(InternalMessages.TripCancellation.Status.RUNNING, firstDvjId, 1));
+        input.add(mockCancellation(InternalMessages.TripCancellation.Status.RUNNING, secondDvjId, 1));
         List<OmmCancellationHandler.CancellationData> result = OmmCancellationHandler.filterDuplicates(input);
         assertEquals(2, result.size());
         assertEquals(0, result.stream().filter(data -> data.getPayload().getStatus() == InternalMessages.TripCancellation.Status.CANCELED).count());
@@ -78,8 +78,8 @@ public class OmmCancellationHandlerTest {
         long secondDvjId = firstDvjId++;
         List<OmmCancellationHandler.CancellationData> input = new LinkedList<>();
 
-        input.add(mockCancellation(InternalMessages.TripCancellation.Status.CANCELED, firstDvjId));
-        input.add(mockCancellation(InternalMessages.TripCancellation.Status.RUNNING, secondDvjId));
+        input.add(mockCancellation(InternalMessages.TripCancellation.Status.CANCELED, firstDvjId, 1));
+        input.add(mockCancellation(InternalMessages.TripCancellation.Status.RUNNING, secondDvjId, 1));
         List<OmmCancellationHandler.CancellationData> result = OmmCancellationHandler.filterDuplicates(input);
         assertEquals(2, result.size());
         assertEquals(1, result.stream().filter(data -> data.getPayload().getStatus() == InternalMessages.TripCancellation.Status.CANCELED).count());
@@ -89,17 +89,17 @@ public class OmmCancellationHandlerTest {
 
     private OmmCancellationHandler.CancellationData mockCancellation(InternalMessages.TripCancellation.Status status) throws Exception {
         long dvjId = MockDataUtils.generateValidJoreId();
-        return mockCancellation(status, dvjId);
+        return mockCancellation(status, dvjId, 1);
     }
 
-    private OmmCancellationHandler.CancellationData mockCancellation(InternalMessages.TripCancellation.Status status, long dvjId) throws Exception {
+    private OmmCancellationHandler.CancellationData mockCancellation(InternalMessages.TripCancellation.Status status, long dvjId, long deviationCaseId) throws Exception {
         InternalMessages.TripCancellation cancellation = MockDataUtils.mockTripCancellation(dvjId,
                 "7575",
                 PubtransFactory.JORE_DIRECTION_ID_INBOUND,
                 "20180101",
                 "11:22:00",
                 status);
-        return new OmmCancellationHandler.CancellationData(cancellation, System.currentTimeMillis(), Long.toString(dvjId));
+        return new OmmCancellationHandler.CancellationData(cancellation, System.currentTimeMillis(), Long.toString(dvjId), Long.toString(deviationCaseId));
     }
 
 }
