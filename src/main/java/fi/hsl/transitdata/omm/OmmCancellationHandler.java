@@ -17,11 +17,11 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class OmmCancellationHandler {
-    static final Logger log = LoggerFactory.getLogger(OmmCancellationHandler.class);
+    private static final Logger log = LoggerFactory.getLogger(OmmCancellationHandler.class);
 
     private List<CancellationData> previousCancellations = new LinkedList<>();
 
-    String timeZone;
+    private final String timeZone;
     private Producer<byte[]> producer;
 
     enum OMMAffectedDeparturesStatus {
@@ -32,9 +32,9 @@ public class OmmCancellationHandler {
         public final InternalMessages.TripCancellation payload;
         public final long timestampEpochMs;
         public final String dvjId;
-        public final String deviationCaseId;
+        public final long deviationCaseId;
 
-        public CancellationData(InternalMessages.TripCancellation payload, long timestampEpochMs, String dvjId, String deviationCaseId) {
+        public CancellationData(InternalMessages.TripCancellation payload, long timestampEpochMs, String dvjId, long deviationCaseId) {
             this.payload = payload;
             this.timestampEpochMs = timestampEpochMs;
             this.dvjId = dvjId;
@@ -72,7 +72,7 @@ public class OmmCancellationHandler {
 
 
     public OmmCancellationHandler(PulsarApplicationContext context) {
-        producer = context.getProducer();
+        producer = context.getSingleProducer();
         timeZone = context.getConfig().getString("omm.timezone");
     }
 
@@ -107,7 +107,11 @@ public class OmmCancellationHandler {
         List<CancellationData> cancellations = new LinkedList<>();
         while (resultSet.next()) {
             try {
+                final long deviationCaseId = resultSet.getLong("deviation_case_id");
+
                 InternalMessages.TripCancellation.Builder builder = InternalMessages.TripCancellation.newBuilder();
+
+                builder.setDeviationCaseId(deviationCaseId);
 
                 String routeId = resultSet.getString("ROUTE_NAME");
                 builder.setRouteId(routeId);
@@ -148,11 +152,9 @@ public class OmmCancellationHandler {
 
                 Timestamp timestamp = resultSet.getTimestamp("AFFECTED_DEPARTURES_LAST_MODIFIED"); //other option is to use DEVIATION_CASES_LAST_MODIFIED
                 Optional<Long> epochTimestamp = toUtcEpochMs(timestamp.toString());
-                if (!epochTimestamp.isPresent()) {
-                    log.error("Failed to parse epoch timestamp from resultset: {}", timestamp.toString());
+                if (epochTimestamp.isEmpty()) {
+                    log.error("Failed to parse epoch timestamp from resultset: {}", timestamp);
                 } else {
-                    final String deviationCaseId = Long.toString(resultSet.getLong("deviation_case_id"));
-
                     CancellationData data = new CancellationData(cancellation, epochTimestamp.get(), dvjId, deviationCaseId);
                     cancellations.add(data);
                 }
@@ -164,19 +166,17 @@ public class OmmCancellationHandler {
     }
 
     static List<CancellationData> filterDuplicates(List<CancellationData> cancellations) {
-        List<CancellationData> filtered = new ArrayList<>();
+        final List<CancellationData> filtered = new ArrayList<>();
 
         // Having even one active cancellation means that the trip is cancelled (or actually we should always have either 1 or 0).
 
         // Cancelling a cancelled cancellation can produce us duplicate rows in the data, if this is done multiple times.
         // We need to find out if there's more than one rows per dvjId. If that is so we can deduct which is the correct one to send.
-        Map<String, List<CancellationData>> groupedByDvjId = cancellations.stream().collect(Collectors.groupingBy(CancellationData::getDvjId));
-        for(Map.Entry<String, List<CancellationData>> entry : groupedByDvjId.entrySet()) {
-            List<CancellationData> dataForThisDvjId = entry.getValue();
+        final Map<String, List<CancellationData>> groupedByDvjId = cancellations.stream().collect(Collectors.groupingBy(CancellationData::getDvjId));
+        for (List<CancellationData> cancellationsForTrip : groupedByDvjId.values()) {
+            final Map<Long, List<CancellationData>> byDeviationCaseId = cancellationsForTrip.stream().collect(Collectors.groupingBy(data -> data.deviationCaseId));
 
-            Map<String, List<CancellationData>> byDeviationCaseId = dataForThisDvjId.stream().collect(Collectors.groupingBy(data -> data.deviationCaseId));
-
-            for (Map.Entry<String, List<CancellationData>> cancellationsForDeviationCase : byDeviationCaseId.entrySet()) {
+            for (Map.Entry<Long, List<CancellationData>> cancellationsForDeviationCase : byDeviationCaseId.entrySet()) {
                 Map<InternalMessages.TripCancellation.Status, List<CancellationData>> groupedByStatus = cancellationsForDeviationCase.getValue()
                         .stream()
                         .collect(Collectors.groupingBy(data -> data.payload.getStatus()));
@@ -188,15 +188,13 @@ public class OmmCancellationHandler {
                         log.warn("Something strange in OMM, more than one active cancellation for single deviation case ID {}", cancellationsForDeviationCase.getKey());
                     }
                     filtered.add(activeCancellations.get(0));
-                }
-                else if (groupedByStatus.containsKey(InternalMessages.TripCancellation.Status.RUNNING)){
+                } else if (groupedByStatus.containsKey(InternalMessages.TripCancellation.Status.RUNNING)){
                     // Let's pick the latest, although doesn't really matter since these just represent cancellation of cancellation,
                     // no matter how many times it has been cancelled
                     List<CancellationData> cancelledCancellations = groupedByStatus.get(InternalMessages.TripCancellation.Status.RUNNING);
-                    cancelledCancellations.sort(Comparator.comparingLong(CancellationData::getTimestamp));
-                    filtered.add(cancelledCancellations.get(0));
-                }
-                else {
+
+                    cancelledCancellations.stream().max(Comparator.comparingLong(CancellationData::getTimestamp)).ifPresent(filtered::add);
+                } else {
                     log.error("This is impossible, found Cancellation which is neither canceled or running!");
                 }
             }
@@ -247,12 +245,10 @@ public class OmmCancellationHandler {
                         tripCancellation.getDirectionId() + "-" + tripCancellation.getStartTime() + "-" +
                         tripCancellation.getStartDate());
             }
-        }
-        catch (PulsarClientException pe) {
+        } catch (PulsarClientException pe) {
             log.error("Failed to send message to Pulsar", pe);
             throw pe;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             log.error("Failed to handle cancellation message", e);
         }
     }
