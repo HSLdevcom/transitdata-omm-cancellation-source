@@ -99,7 +99,7 @@ public class OmmCancellationHandlerTest {
                 "20180101",
                 "11:22:00",
                 status);
-        return new OmmCancellationHandler.CancellationData(cancellation, System.currentTimeMillis(), Long.toString(dvjId), Long.toString(deviationCaseId));
+        return new OmmCancellationHandler.CancellationData(cancellation, System.currentTimeMillis(), Long.toString(dvjId), deviationCaseId);
     }
 
 }
