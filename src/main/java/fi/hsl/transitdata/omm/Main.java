@@ -84,7 +84,11 @@ public class Main {
     private static String readConnectionString() throws Exception {
         String connectionString = "";
         try {
-            connectionString = System.getenv("TRANSITDATA_PUBTRANS_CONN_STRING");
+            //Default path is what works with Docker out-of-the-box. Override with a local file if needed
+            final String secretFilePath = ConfigUtils.getEnv("FILEPATH_CONNECTION_STRING")
+                                                     .orElse("/run/secrets/db_conn_string");
+            connectionString = new Scanner(new File(secretFilePath))
+                    .useDelimiter("\\Z").next();
         } catch (Exception e) {
             log.error("Failed to read DB connection string from secrets", e);
             throw e;
