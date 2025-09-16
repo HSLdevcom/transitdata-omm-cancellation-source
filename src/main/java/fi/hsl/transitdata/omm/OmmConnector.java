@@ -31,7 +31,8 @@ public class OmmConnector {
         log.info("Using timezone " + timezone);
     }
 
-    public static OmmConnector newInstance(PulsarApplicationContext context, String jdbcConnectionString, CancellationSourceType sourceType) throws SQLException {
+    public static OmmConnector newInstance(PulsarApplicationContext context, String jdbcConnectionString,
+            CancellationSourceType sourceType) throws SQLException {
         Connection connection = DriverManager.getConnection(jdbcConnectionString);
         return new OmmConnector(context, connection, sourceType);
     }
@@ -40,8 +41,8 @@ public class OmmConnector {
         InputStream stream = (sourceType == CancellationSourceType.FROM_PAST)
                 ? getClass().getResourceAsStream("/cancellations_past_current_future.sql")
                 : (sourceType == CancellationSourceType.FROM_NOW)
-                    ? getClass().getResourceAsStream("/cancellations_current_future.sql")
-                    : null;
+                        ? getClass().getResourceAsStream("/cancellations_current_future.sql")
+                        : null;
         try {
             return FileUtils.readFileFromStreamOrThrow(stream);
         } catch (Exception e) {
@@ -85,10 +86,10 @@ public class OmmConnector {
 
             long elapsed = System.currentTimeMillis() - queryStartTime;
             if (elapsed > 4000) {
-                log.warn("Slow querying & handling of cancellations. Total query and processing time was: {} ms", elapsed);
+                log.warn("Slow querying & handling of cancellations. Total query and processing time was: {} ms",
+                        elapsed);
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             log.error("Error while  querying and processing messages", e);
             throw e;
         }
