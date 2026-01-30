@@ -17,31 +17,31 @@ public class OmmConnector {
     private static final Logger log = LoggerFactory.getLogger(OmmConnector.class);
 
     private final Connection dbConnection;
-    private OmmCancellationHandler handler;
+    private final OmmCancellationHandler handler;
     private final String queryString;
     private final CancellationSourceType sourceType;
     private final String timezone;
 
-    private OmmConnector(PulsarApplicationContext context, Connection connection, CancellationSourceType type) {
+    private OmmConnector(PulsarApplicationContext context, Connection connection, CancellationSourceType type, boolean useTestOmmQueries) {
         handler = new OmmCancellationHandler(context);
         dbConnection = connection;
-        queryString = createQuery(type);
+        queryString = createQuery(type, useTestOmmQueries);
         sourceType = type;
         timezone = context.getConfig().getString("omm.timezone");
         log.info("Using timezone " + timezone);
     }
 
     public static OmmConnector newInstance(PulsarApplicationContext context, String jdbcConnectionString,
-            CancellationSourceType sourceType) throws SQLException {
+            CancellationSourceType sourceType, boolean useTestOmmQueries) throws SQLException {
         Connection connection = DriverManager.getConnection(jdbcConnectionString);
-        return new OmmConnector(context, connection, sourceType);
+        return new OmmConnector(context, connection, sourceType, useTestOmmQueries);
     }
 
-    private String createQuery(CancellationSourceType sourceType) {
+    private String createQuery(CancellationSourceType sourceType, boolean useTestOmmQueries) {
         InputStream stream = (sourceType == CancellationSourceType.FROM_PAST)
-                ? getClass().getResourceAsStream("/cancellations_past_current_future.sql")
+                ? getClass().getResourceAsStream(useTestOmmQueries ? "/cancellations_past_current_future_test.sql" : "/cancellations_past_current_future.sql")
                 : (sourceType == CancellationSourceType.FROM_NOW)
-                        ? getClass().getResourceAsStream("/cancellations_current_future.sql")
+                        ? getClass().getResourceAsStream(useTestOmmQueries ? "/cancellations_current_future_test.sql" : "/cancellations_current_future.sql")
                         : null;
         try {
             return FileUtils.readFileFromStreamOrThrow(stream);
