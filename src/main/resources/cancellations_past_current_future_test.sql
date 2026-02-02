@@ -21,13 +21,13 @@ SELECT
     LEFT JOIN omm_db.dbo.affected_departures AS AD ON DC.deviation_case_id = AD.deviation_case_id
     LEFT JOIN omm_db.dbo.bulletin_localized_messages AS BLM ON DC.bulletin_id = BLM.bulletins_id
     LEFT JOIN omm_db.dbo.bulletins AS B ON DC.bulletin_id = B.bulletins_id
-    INNER JOIN ptdoi4_db.dbo.DatedVehicleJourney AS DVJ ON DVJ.Id = AD.departure_id
-    INNER JOIN ptdoi4_db.dbo.VehicleJourney AS VJ ON VJ.Id = DVJ.IsBasedOnVehicleJourneyId
-    INNER JOIN ptdoi4_db.dbo.VehicleJourneyTemplate AS VJT ON VJT.Id = DVJ.IsBasedOnVehicleJourneyTemplateId
-    INNER JOIN ptdoi4_db.T.KeyVariantValue AS KVV ON KVV.IsForObjectId = VJ.Id
-    INNER JOIN ptdoi4_db.dbo.KeyVariantType AS KVT ON KVT.Id = KVV.IsOfKeyVariantTypeId
-    INNER JOIN ptdoi4_db.dbo.KeyType AS KT ON KT.Id = KVT.IsForKeyTypeId
-    INNER JOIN ptdoi4_db.dbo.ObjectType AS OT ON OT.Number = KT.ExtendsObjectTypeNumber
+    INNER JOIN ptDOI4.dbo.DatedVehicleJourney AS DVJ ON DVJ.Id = AD.departure_id
+    INNER JOIN ptDOI4.dbo.VehicleJourney AS VJ ON VJ.Id = DVJ.IsBasedOnVehicleJourneyId
+    INNER JOIN ptDOI4.dbo.VehicleJourneyTemplate AS VJT ON VJT.Id = DVJ.IsBasedOnVehicleJourneyTemplateId
+    INNER JOIN ptDOI4.dbo.T_KeyVariantValue AS KVV ON KVV.IsForObjectId = VJ.Id
+    INNER JOIN ptDOI4.dbo.KeyVariantType AS KVT ON KVT.Id = KVV.IsOfKeyVariantTypeId
+    INNER JOIN ptDOI4.dbo.KeyType AS KT ON KT.Id = KVT.IsForKeyTypeId
+    INNER JOIN ptDOI4.dbo.ObjectType AS OT ON OT.Number = KT.ExtendsObjectTypeNumber
     WHERE /*DC.[type] = 'CANCEL_DEPARTURE' AND AD.[type] = 'CANCEL_ENTIRE_DEPARTURE'
     AND*/ BLM.language_code = 'fi'
         /*CANCELLATION MUST BE EITHER VALID IN THE FUTURE OR CANCELLATION OF CANCELLATION (AND VALID IN THE FUTURE)*/
