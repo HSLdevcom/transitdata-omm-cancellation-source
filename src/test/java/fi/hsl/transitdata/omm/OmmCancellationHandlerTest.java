@@ -14,7 +14,8 @@ import static org.junit.Assert.assertTrue;
 public class OmmCancellationHandlerTest {
     @Test
     public void testFilteringWithEmptyList() {
-        List<OmmCancellationHandler.CancellationData> emptyList = OmmCancellationHandler.filterDuplicates(new LinkedList<>());
+        List<OmmCancellationHandler.CancellationData> emptyList = OmmCancellationHandler
+                .filterDuplicates(new LinkedList<>());
         assertTrue(emptyList.isEmpty());
     }
 
@@ -68,8 +69,14 @@ public class OmmCancellationHandlerTest {
         input.add(mockCancellation(InternalMessages.TripCancellation.Status.RUNNING, secondDvjId, 1));
         List<OmmCancellationHandler.CancellationData> result = OmmCancellationHandler.filterDuplicates(input);
         assertEquals(2, result.size());
-        assertEquals(0, result.stream().filter(data -> data.getPayload().getStatus() == InternalMessages.TripCancellation.Status.CANCELED).count());
-        assertEquals(2, result.stream().filter(data -> data.getPayload().getStatus() == InternalMessages.TripCancellation.Status.RUNNING).count());
+        assertEquals(0,
+                result.stream().filter(
+                        data -> data.getPayload().getStatus() == InternalMessages.TripCancellation.Status.CANCELED)
+                        .count());
+        assertEquals(2,
+                result.stream().filter(
+                        data -> data.getPayload().getStatus() == InternalMessages.TripCancellation.Status.RUNNING)
+                        .count());
     }
 
     @Test
@@ -82,24 +89,28 @@ public class OmmCancellationHandlerTest {
         input.add(mockCancellation(InternalMessages.TripCancellation.Status.RUNNING, secondDvjId, 1));
         List<OmmCancellationHandler.CancellationData> result = OmmCancellationHandler.filterDuplicates(input);
         assertEquals(2, result.size());
-        assertEquals(1, result.stream().filter(data -> data.getPayload().getStatus() == InternalMessages.TripCancellation.Status.CANCELED).count());
-        assertEquals(1, result.stream().filter(data -> data.getPayload().getStatus() == InternalMessages.TripCancellation.Status.RUNNING).count());
+        assertEquals(1,
+                result.stream().filter(
+                        data -> data.getPayload().getStatus() == InternalMessages.TripCancellation.Status.CANCELED)
+                        .count());
+        assertEquals(1,
+                result.stream().filter(
+                        data -> data.getPayload().getStatus() == InternalMessages.TripCancellation.Status.RUNNING)
+                        .count());
     }
 
-
-    private OmmCancellationHandler.CancellationData mockCancellation(InternalMessages.TripCancellation.Status status) throws Exception {
+    private OmmCancellationHandler.CancellationData mockCancellation(InternalMessages.TripCancellation.Status status)
+            throws Exception {
         long dvjId = MockDataUtils.generateValidJoreId();
         return mockCancellation(status, dvjId, 1);
     }
 
-    private OmmCancellationHandler.CancellationData mockCancellation(InternalMessages.TripCancellation.Status status, long dvjId, long deviationCaseId) throws Exception {
-        InternalMessages.TripCancellation cancellation = MockDataUtils.mockTripCancellation(dvjId,
-                "7575",
-                PubtransFactory.JORE_DIRECTION_ID_INBOUND,
-                "20180101",
-                "11:22:00",
-                status);
-        return new OmmCancellationHandler.CancellationData(cancellation, System.currentTimeMillis(), Long.toString(dvjId), deviationCaseId);
+    private OmmCancellationHandler.CancellationData mockCancellation(InternalMessages.TripCancellation.Status status,
+            long dvjId, long deviationCaseId) throws Exception {
+        InternalMessages.TripCancellation cancellation = MockDataUtils.mockTripCancellation(dvjId, "7575",
+                PubtransFactory.JORE_DIRECTION_ID_INBOUND, "20180101", "11:22:00", status);
+        return new OmmCancellationHandler.CancellationData(cancellation, System.currentTimeMillis(),
+                Long.toString(dvjId), deviationCaseId);
     }
 
 }

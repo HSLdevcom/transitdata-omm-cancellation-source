@@ -33,13 +33,12 @@ public class Main {
 
             if (sourceType == CancellationSourceType.FROM_PAST) {
                 log.info("Creating OMM cancellation source for past, ongoing and future cancellations");
-            }
-            else if (sourceType == CancellationSourceType.FROM_NOW) {
+            } else if (sourceType == CancellationSourceType.FROM_NOW) {
                 log.info("Creating OMM cancellation source for ongoing and future cancellations");
-            }
-            else {
+            } else {
                 log.error("Failed to get source type from CANCELLATIONS_FROM_TIME -env variable, exiting application");
-                log.info("CANCELLATIONS_FROM_TIME -env variable should be either 'NOW' (for transitdata) or 'PAST' (for transitlog)");
+                log.info(
+                        "CANCELLATIONS_FROM_TIME -env variable should be either 'NOW' (for transitdata) or 'PAST' (for transitlog)");
                 System.exit(1);
             }
 
@@ -79,7 +78,6 @@ public class Main {
             app.close();
         }
     }
-
 
     private static String readConnectionString() throws Exception {
         String connectionString = "";
