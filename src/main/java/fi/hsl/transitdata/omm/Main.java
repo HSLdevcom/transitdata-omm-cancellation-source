@@ -46,7 +46,8 @@ public class Main {
             final PulsarApplication app = PulsarApplication.newInstance(config);
             appRef = app;
             final PulsarApplicationContext context = app.getContext();
-            final OmmConnector omm = OmmConnector.newInstance(context, connectionString, sourceType);
+            final boolean useTestOmmQueries = config.getBoolean("omm.useTestDbQueries");
+            final OmmConnector omm = OmmConnector.newInstance(context, connectionString, sourceType, useTestOmmQueries);
             final int pollIntervalInSeconds = config.getInt("omm.interval");
 
             scheduler.scheduleAtFixedRate(() -> {
